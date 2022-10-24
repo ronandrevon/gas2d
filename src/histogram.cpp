@@ -1,25 +1,25 @@
 // Copyright (c) 2008, 2012 Kirill Diduk (k_diduk@ukr.net)
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
-// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to 
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
 // permit persons to whom the Software is furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
 // Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
 // WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
 // OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <cmath>
-#include "histogram.h"
+#include "histogram.hpp"
 
 const Real PI = Real( 3.141592653589793238 );
 
 template <typename T>
-    inline T sqr( T x ) 
+    inline T sqr( T x )
 {
     return x*x;
 }
@@ -29,7 +29,7 @@ Histogram::Histogram( const vector<Particle>& vparticle, int max_histo )
 {
     hst = new Longint[max_hst+1];
     norm = new double[max_hst+1];
-    
+
     reset_histogram( );
     Mx = Real( 0 );
     Dx = Real( 0 );
@@ -77,7 +77,7 @@ void Histogram::update_histogram( )
             it = vp.begin( ); it != vp.end( ); it++ )
     {
         int i = int( std::floor( it->v( ).abs( ) / h ) );
-        
+
         if (i>=0 && i<max_hst)
         {
             hst[i]++;
@@ -87,13 +87,13 @@ void Histogram::update_histogram( )
             hst[max_hst]++;
         }
     }
-    
+
     Longint hsum = 0;
     for (int i=0; i<=max_hst; i++)
     {
         hsum += hst[i];
     }
-    
+
     // ------------------------------------------------
     // нормализация гистограммы
     // и вычисление мат. ожидания
@@ -106,7 +106,7 @@ void Histogram::update_histogram( )
     }
     Mx *= h;
     // -----------------------------------
-    
+
     Dx = 2 * sqr( Mx ) / PI;
     // ------------------------------------------------
 }

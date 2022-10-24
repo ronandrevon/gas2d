@@ -1,13 +1,13 @@
 // Copyright (c) 2008, 2012 Kirill Diduk (k_diduk@ukr.net)
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 // documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
-// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to 
+// rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
 // permit persons to whom the Software is furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
 // Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
 // WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
 // OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
@@ -15,10 +15,11 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <stdio.h>
 
 #include <assert.h>
 
-#include "gas_simulator.h"
+#include "gas_simulator.hpp"
 
 const Real PI = Real( 3.141592653589793238 );
 
@@ -37,17 +38,17 @@ Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m )
     m_crossings = 0;
     m_collisions = 0;
     m_particle.clear( );
-    
+
     m_cell.resize( nx );
     for (size_t i=0; i<m_cell.size( ); i++)
     {
         m_cell[i].resize( ny );
     }
-    
+
     for (int i=0; i<np; i++)
     {
         Vector_2D v = random_speed( );
-        
+
         Vector_2D pos = random_pos( );
         int ii = int( floor( pos.x( ) ) );
         int jj = int( floor( pos.y( ) ) );
@@ -60,12 +61,12 @@ Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m )
         m_cell[ii][jj].add_particle( i );
         Particle p( pos, v, r, m );
         m_particle.push_back( p );
-        
+
         assert( p.i( ) == ii );
         assert( p.j( ) == jj );
         assert( m_cell[ii][jj].quantity( ) == 1 );
     }
-    
+
     for (int i=0; i<np; i++)
     {
         min_time( i );
@@ -88,7 +89,7 @@ void Gas_simulator::step( )
 {
     int ic = m_event.top( );
     const Event& e = m_event.event( ic );
-    
+
     switch (e.kind( ))
     {
         case CROSSING:
@@ -104,9 +105,9 @@ void Gas_simulator::step_collision( int ic, const Event& e )
 {
     int jc = e.partner( );
     const Event& e2 = m_event.event( jc );
-    
+
     if (e2.kind( ) == COLLISION
-        && e2.partner( ) == ic 
+        && e2.partner( ) == ic
         && e2.time( ) == e.time( ))
     {
         // событие является действительным;
@@ -115,10 +116,10 @@ void Gas_simulator::step_collision( int ic, const Event& e )
         m_particle[ic].move_to( m_time );
         m_particle[jc].move_to( m_time );
         reflexion( ic, jc );
-        
+
         m_collisions++;
     }
-    
+
     min_time( ic );
     min_time( jc );
 }
@@ -132,11 +133,11 @@ void Gas_simulator::reflexion( int ic, int jc )
     const Vector_2D& v2 = p2.v( );
     Real m1 = p1.mass( );
     Real m2 = p2.mass( );
-	
+
     Vector_2D dv = v2 - v1;
     Vector_2D dr = p2.pos( ) - p1.pos( );
     Real lambda = (2 * scalar_product(dv, dr)) / ((m1 + m2) * dr.sqr_abs());
-	
+
     p1.set_velocity( v1 + lambda * m2 * dr );
     p2.set_velocity( v2 - lambda * m1 * dr );
 }
@@ -145,12 +146,12 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
 {
     Border border = Border( e.partner( ) );
     Particle& p = m_particle[ic];
-    
+
     m_time = e.time( );
     p.move_to( e.time( ) );
     int inew = p.i( );
     int jnew = p.j( );
-    
+
     switch (border)
     {
         case X_LEFT:
@@ -161,7 +162,7 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
                 p.reverse_vx( );
             }
             break;
-            
+
         case X_RIGHT:
             inew++;
             if (inew >= nx)
@@ -170,7 +171,7 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
                 p.reverse_vx( );
             }
             break;
-            
+
         case Y_BOTTOM:
             jnew--;
             if (jnew < 0)
@@ -179,7 +180,7 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
                 p.reverse_vy( );
             }
             break;
-            
+
         case Y_TOP:
             jnew++;
             if (jnew >= ny)
@@ -189,7 +190,7 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
             }
             break;
     }
-    
+
     if (p.i( ) != inew || p.j( ) != jnew)
     {
         m_cell[p.i( )][p.j( )].remove_particle( ic );
@@ -197,9 +198,9 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
         p.set_i( inew );
         p.set_j( jnew );
     }
-    
+
     m_crossings++;
-    
+
     min_time( ic );
 }
 
@@ -213,25 +214,25 @@ void Gas_simulator::min_time( int ic )
 {
     // расчет момента времени пересечения границ
     Event e1 = crossing_time( ic );
-	
+
     // -------------------------------------------------
     // расчет момента столкновения с соседними частицами
     const Particle& p = m_particle[ic];
     Real tmin = REAL_MAX;
     int next = 0;
-	
+
     int i1 = p.i( ) - 1;
     int i2 = p.i( ) + 1;
-	
+
     if (i1 < 0) i1 = 0;
     if (i2 >= nx) i2 = nx-1;
-	
+
     int j1 = p.j( ) - 1;
     int j2 = p.j( ) + 1;
-	
+
     if (j1 < 0) j1 = 0;
     if (j2 >= ny) j2 = ny-1;
-	
+
     for (int i=i1; i<=i2; i++)
     {
         for (int j=j1; j<=j2; j++)
@@ -249,12 +250,12 @@ void Gas_simulator::min_time( int ic )
                         }
                     } // if
                 } // for k
-                
+
         } // for j
     } // for i
 
     Event e2 = Event( COLLISION, next, tmin );
-    
+
     // -------------------------------------------------
 
     // занесение события в очередь
@@ -271,14 +272,14 @@ Event Gas_simulator::crossing_time( int ic )
 {
     Border next = Border(0);
     Border next_min = Border(0);
-    
+
     Real dt = Real( 0 );
     Real dt_min = REAL_MAX;
-    
+
     const Particle& p = m_particle[ic];
-    
+
     ///////////////////////////////////////////
-    
+
     if (p.vx( ) > 0)
     {
         dt = (p.i()+1 - p.x()) / p.vx( );
@@ -289,15 +290,15 @@ Event Gas_simulator::crossing_time( int ic )
         dt = (p.i() - p.x()) / p.vx( );
         next = X_LEFT;
     }
-	
+
     if (dt < dt_min)
     {
         dt_min = dt;
         next_min = next;
     }
-    
+
     ///////////////////////////////////////////
-    
+
     if (p.vy( ) > 0)
     {
         dt = (p.j()+1 - p.y()) / p.vy( );
@@ -308,13 +309,13 @@ Event Gas_simulator::crossing_time( int ic )
         dt = (p.j() - p.y()) / p.vy( );
         next = Y_BOTTOM;
     }
-    
+
     if (dt < dt_min)
     {
         dt_min = dt;
         next_min = next;
     }
-    
+
     dt_min += p.t( );
     return Event( CROSSING, next_min, dt_min );
 }
@@ -327,14 +328,14 @@ Real Gas_simulator::collision_time( int ic, int jc )
     const Particle& p1 = m_particle[ic];
     const Particle& p2 = m_particle[jc];
     Real res = REAL_MAX;
-	
+
     Real L = p1.R( ) + p2.R( );
     Real dt = p1.t( ) - p2.t( );
-	
+
     Vector_2D v1, v2;
     Vector_2D r1, r2;
     Real t0 = Real(0);
-	
+
     if (dt > Real(0))
     {
         v1 = p1.v( );
@@ -352,19 +353,19 @@ Real Gas_simulator::collision_time( int ic, int jc )
         r2 = p1.pos( ) + (dt * v2);
         t0 = p2.t( );
     }
-	
+
     Vector_2D dv = v1 - v2;
     Vector_2D dr = r1 - r2;
-	
+
     Real A = dv.sqr_abs( );
     Real B = -scalar_product( dr, dv );
     Real D = B*B - A*( dr.sqr_abs( ) - L*L );
-	
+
     if (D > Real(0) && B > sqrt( D ))
     {
         res = t0 + (B - sqrt( D )) / A;
     }
-	
+
     return res;
 }
 
@@ -376,7 +377,7 @@ Vector_2D Gas_simulator::random_speed( )
 {
     Real x = rand( );
     Real y = rand( );
-	
+
     Vector_2D v( x, y );
     v /= v.abs( );
     return v;
@@ -386,7 +387,7 @@ Vector_2D Gas_simulator::random_pos( )
 {
     Real x = (rand( ) % nx) + Real(0.5);
     Real y = (rand( ) % ny) + Real(0.5);
-	
+
     return Vector_2D( x, y );
 }
 
@@ -400,7 +401,7 @@ Real Gas_simulator::k_energy( ) const
         en += m_particle[i].mass( );
     }
     en /= Real( 2 );
-        
+
     return en / Real(np);
 }
 
@@ -409,14 +410,14 @@ Real Gas_simulator::k_energy( ) const
 //          статистика
 // ----------------------------------------------------------------------------
 
-int Gas_simulator::crossings( ) const 
-{ 
-    return m_crossings; 
+int Gas_simulator::crossings( ) const
+{
+    return m_crossings;
 }
 
-int Gas_simulator::collisions( ) const 
-{ 
-    return m_collisions; 
+int Gas_simulator::collisions( ) const
+{
+    return m_collisions;
 }
 
 Real Gas_simulator::average_speed( ) const
@@ -438,7 +439,7 @@ void Gas_simulator::gather_statistic( )
         m_average_speed += it->v( ).abs( );
     }
     m_average_speed /= np;
-    
+
     hst.update_histogram( );
 }
 
