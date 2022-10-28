@@ -31,9 +31,12 @@ using std::vector;
 class Gas_simulator
 {
 public:
-    Gas_simulator( int n, Real r, int max_x, int max_y, Real m );
+    Gas_simulator( int n, Real r, int max_x, int max_y, Real m, double* xv );
     void step_by( int ticks );
+    void step_until(double *info);
     void reset_all( );
+
+    // void set_distribution(double * dist);
 
     int crossings( ) const;
     int collisions( ) const;
@@ -47,6 +50,7 @@ public:
     double expected_value( ) const;
     const vector<Particle>& vparticles( ) const;
     const Real& time( ) const;
+    void print_dist() const;
 
 private:
     enum Border { X_LEFT = 1, X_RIGHT, Y_BOTTOM, Y_TOP };
@@ -64,8 +68,8 @@ private:
     void reflexion( int ic, int jc );
 
     // вспомогательные методы
-    Vector_2D random_speed( );
-    Vector_2D random_pos( );
+    Vector_2D init_pos(  double x, double y,bool random);
+    Vector_2D init_speed(double x, double y,bool random);
 
 private:
     int np; // количество частиц
@@ -80,6 +84,10 @@ private:
     // статистические данные
     int m_crossings;
     int m_collisions;
+
+    Real last_event_time;
+    int last_ic;
+    int last_jc;
 
     Real m_average_speed; // средняя скорость
     Histogram hst;

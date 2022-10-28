@@ -31,12 +31,14 @@ using std::free;
 
 inline Real sqr( Real x ) { return x*x; }
 
-Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m )
+Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m,double *xv )
     : np(n), nx(max_x), ny(max_y), m_time(0), m_event( n, event_max ),
          hst( m_particle, 500 )
 {
     m_crossings = 0;
     m_collisions = 0;
+    last_ic = -1;
+    last_jc = -1;
     m_particle.clear( );
 
     m_cell.resize( nx );
@@ -45,19 +47,21 @@ Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m )
         m_cell[i].resize( ny );
     }
 
+    bool random = xv[0]<0;
     for (int i=0; i<np; i++)
     {
-        Vector_2D v = random_speed( );
+        Vector_2D pos = init_pos(xv[4*i],xv[4*i+1],random);
+        Vector_2D v   = init_speed(xv[4*i+2],xv[4*i+3],random);
 
-        Vector_2D pos = random_pos( );
         int ii = int( floor( pos.x( ) ) );
         int jj = int( floor( pos.y( ) ) );
         while (m_cell[ii][jj].quantity( ) > 0)
         {
-            pos = random_pos( );
+            pos = init_pos(0,0,true );
             ii = int( floor( pos.x( ) ) );
             jj = int( floor( pos.y( ) ) );
         }
+        // printf("%.2Lf,%.2Lf,%.2Lf,%.2Lf\n",pos.x(),pos.y(),v.x(),v.y());
         m_cell[ii][jj].add_particle( i );
         Particle p( pos, v, r, m );
         m_particle.push_back( p );
@@ -79,6 +83,30 @@ void Gas_simulator::step_by( int ticks )
     {
         step( );
     }
+}
+
+void Gas_simulator::step_until(double* info)
+{
+    while (last_ic<0)
+    {
+        step( );
+    }
+
+  info[0] = (double)last_event_time;
+  info[1] = (double)last_ic;
+  info[2] = (double)m_particle[last_ic].vx( );
+  info[3] = (double)m_particle[last_ic].vy( );
+  info[4] = (double)last_jc;
+  info[5] = 0;
+  info[6] = 0;
+
+  if (last_jc>=0){
+    info[5]=(double)m_particle[last_jc].vx( );
+    info[6]=(double)m_particle[last_jc].vy( );
+  }
+
+  last_ic = -1;
+  last_jc = -1;
 }
 
 // ------------------------------------------------------------
@@ -118,8 +146,10 @@ void Gas_simulator::step_collision( int ic, const Event& e )
         reflexion( ic, jc );
 
         m_collisions++;
+        last_ic=ic;
+        last_jc=jc;
+        last_event_time = m_time;//Event(e.kind(),ic,m_time);
     }
-
     min_time( ic );
     min_time( jc );
 }
@@ -160,6 +190,7 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
             {
                 inew = 0;
                 p.reverse_vx( );
+                last_ic=ic;
             }
             break;
 
@@ -169,6 +200,7 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
             {
                 inew = nx-1;
                 p.reverse_vx( );
+                last_ic=ic;
             }
             break;
 
@@ -178,6 +210,7 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
             {
                 jnew = 0;
                 p.reverse_vy( );
+                last_ic=ic;
             }
             break;
 
@@ -187,8 +220,14 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
             {
                 jnew = ny-1;
                 p.reverse_vy( );
+                last_ic=ic;
             }
             break;
+    }
+
+    if (last_ic>=0){
+      last_event_time = e.time( );
+      // last_event = Event(e.kind(),ic,m_time);
     }
 
     if (p.i( ) != inew || p.j( ) != jnew)
@@ -373,22 +412,29 @@ Real Gas_simulator::collision_time( int ic, int jc )
 // вспомогательные методы для инициализации данных
 // ------------------------------------------------
 
-Vector_2D Gas_simulator::random_speed( )
+Vector_2D Gas_simulator::init_speed(double vx, double vy,bool random)
 {
-    Real x = rand( );
-    Real y = rand( );
+    if (random){
+      vx = rand( );
+      vy = rand( );
+    }
+    Real x=vx;
+    Real y=vy;
 
-    Vector_2D v( x, y );
+    Vector_2D v(x,y);
     v /= v.abs( );
     return v;
 }
 
-Vector_2D Gas_simulator::random_pos( )
+Vector_2D Gas_simulator::init_pos(double x, double y,bool random)
 {
-    Real x = (rand( ) % nx) + Real(0.5);
-    Real y = (rand( ) % ny) + Real(0.5);
+    if (random){
+      x = (rand( ) % nx) + Real(0.5);
+      y = (rand( ) % ny) + Real(0.5);
+    }
 
-    return Vector_2D( x, y );
+
+    return Vector_2D( Real(x), Real(y) );
 }
 
 // ------------------------------------------------
@@ -478,6 +524,16 @@ const vector<Particle>& Gas_simulator::vparticles( ) const
 const Real& Gas_simulator::time( ) const
 {
     return m_time;
+}
+
+void Gas_simulator::print_dist() const
+{
+  for (vector<Particle>::const_iterator it = m_particle.begin( );
+  it != m_particle.end( ); it++){
+    printf("%.2Lf %.2Lf %.2Lf %.2Lf\n",
+      it->x(),it->y(),it->vx(),it->vy());
+  }
+
 }
 
 // ----------------------------------------------------------------------------

@@ -5,6 +5,9 @@
 **data
 **bin
 
+**__pycache__/
+.env
+
 # Prerequisites
 *.d
 
@@ -13,6 +16,7 @@
 *.lo
 *.o
 *.obj
+*.cxx
 
 # Precompiled Headers
 *.gch

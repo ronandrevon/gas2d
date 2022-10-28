@@ -2,10 +2,12 @@
 .SUFFIXES: .cpp .hpp .h .o    # define new suffix list
 
 # compilation options
-PG=-g
+PG=#-pg
+DEBUG=-g
 CXX      = g++
 DEFINES  = #-DQT_NO_DEBUG -DQT_GUI_LIB -DQT_CORE_LIB -DQT_SHARED
-CXXFLAGS = -Os -frtti -fexceptions -Wall -W $(DEFINES) $(PG)
+CXXFLAGS = -Os -frtti -fexceptions -Wall -W $(DEFINES) $(DEBUG)  $(PG)
+BIN=gas2d$(DEBUG)$(PG)
 # linking options
 LINK     = g++
 LPATH    = -L/usr/lib
@@ -15,7 +17,7 @@ LFLAGS   = -Wl,-O1
 INCLUDE  = -I src
 
 SRCDIR   = src
-OBJDIR   = obj
+OBJDIR   = bin/obj
 OBJECTS  = $(addprefix $(OBJDIR)/, \
            gas_simulator.o histogram.o \
            vector_algebra.o)
@@ -23,7 +25,10 @@ OBJECTS  = $(addprefix $(OBJDIR)/, \
 
 
 all : $(OBJECTS)
-	$(LINK) $(LPATH) $(LFLAGS) $(INCLUDE) $(PG) -o bin/gas2d$(PG) $(SRCDIR)/main.cpp $(OBJECTS) $(LIBS)
+	$(LINK) $(LPATH) $(LFLAGS) $(INCLUDE) $(CXXFLAGS) -o bin/$(BIN) $(SRCDIR)/main.cpp $(OBJECTS) $(LIBS)
+
+wrappy : $(OBJECTS)
+	$(LINK) $(LPATH) $(LFLAGS) $(INCLUDE) $(CXXFLAGS) -o bin/wrap $(SRCDIR)/main_wrap.cpp $(OBJECTS) $(LIBS)
 
 $(OBJDIR)/%.o : $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) $(INCL) -c  $< -o $@
