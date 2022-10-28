@@ -13,7 +13,7 @@ if 'r' in opt:
     o = check_output(cmd,shell=True).decode()
     print(o)
 
-with open('vel.bin','rb') as f:d=f.read()
+with open('data/vel.bin','rb') as f:d=f.read()
 v = np.reshape(np.array(struct.unpack('f'*2*n,d)),(n,2))
 
 ##plot

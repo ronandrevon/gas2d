@@ -1,7 +1,7 @@
 %module gas
 %{
 #define SWIG_FILE_WITH_INIT
-#include "simulator.hpp"
+#include "../src/simulator.hpp"
 %}
 %include "std_vector.i"
 %include "numpy.i"
@@ -23,4 +23,4 @@
   }
 }
 
-%include "simulator.hpp"
+%include "../src/simulator.hpp"

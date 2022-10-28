@@ -14,7 +14,7 @@ xv0 = np.reshape(np.array(np.vstack([x,v]).T,dtype=float),4*n)
 g = gas.Simulator()
 g.set_xv(xv0)
 g.init_simulator(n,nx,ny,r,m)
-g.print_dist()
+# g.print_dist()
 # for i in range(10):
 #     print(colors.red+"event %d" %i+colors.black)
 #     info=g.next_event(False)#;g.print_dist()
@@ -57,7 +57,8 @@ class PauseAnimation:
 
     def next_event(self):
         # info=[1e10]+[-1]*6
-        print(colors.green+'Next event'+colors.black)
+        if self.verbose>0:
+            print(colors.green+'Next event'+colors.black)
         info = g.next_event(self.verbose>1)
         # print(info)
         self.info=dict(zip(['t','ic','vx1','vy1','jc','vx2','vy2'],info))
@@ -65,7 +66,8 @@ class PauseAnimation:
     def update(self, i):
 
         if self.t+self.dt>=self.info['t']:
-            print(colors.red+'Event reached animation paused'+colors.black)
+            if self.verbose>0:
+                print(colors.red+'Event reached animation paused'+colors.black)
             t,ic,vx1,vy1,jc,vx2,vy2=self.info.values()
             ##update positions before event
             dt=self.info['t']-t

@@ -4,9 +4,11 @@
 **old
 **data
 **bin
+**build
 
 **__pycache__/
 .env
+python/gas.py
 
 # Prerequisites
 *.d
