@@ -8,11 +8,15 @@
 
 class Simulator{
   public:
-    Simulator(){
+    Simulator(){}
+    Simulator(int n, int nx, int ny, float r, float m,double* xv):xv(xv){
+      gas_simulator = new Gas_simulator(n,Real(r),nx,ny,Real(m),xv);
     }
 
   void set_xv(double* seq, int n){
     xv=seq;
+    if (n>400000)
+      printf("n particles=%d\n" ,n/4);
   };
 
   void init_simulator(int n, int nx, int ny, float r, float m){

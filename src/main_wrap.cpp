@@ -8,14 +8,14 @@
 
 int main( )
 {
-  int n=2,nx=20,ny=20;//,N_steps=50;
+  int n=10,nx=20,ny=20;//,N_steps=50;
   Real m=1.0,r=0.5;
 
   double *xv=new double[n*4];
   for (int i=0;i<n;i++){
     xv[4*i]   = i+0.25;
-    xv[4*i+1] = 0;
-    xv[4*i+2] = 0.1;
+    xv[4*i+1] = 0.1;
+    xv[4*i+2] = i+0.1;
     xv[4*i+3] = 1.0;
   }
 

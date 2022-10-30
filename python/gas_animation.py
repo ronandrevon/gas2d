@@ -6,13 +6,13 @@ import gas,copy
 
 class GasAnimation:
     def __init__(self,params,dt,verbose=0):
-        self.dt = dt
         self.t  = 0
-        self.coll    = 0
-        self.params  = params
-        self.verbose = verbose
+        self.coll = 0
+        self.dt = dt
         self.time_template = 'time = %.4fs'
-        self.HIST_BINS     = np.linspace(0,3,300)#np.hstack([np.arange(0,0.5,0.05),np.arange(0.5,1.5,0.01),np.arange(1.5,2,0.05),np.arange(2,5.1,0.2)])
+        self.verbose = verbose
+        self.params = params
+        self.HIST_BINS = np.linspace(0,3,300)#np.hstack([np.arange(0,0.5,0.05),np.arange(0.5,1.5,0.01),np.arange(1.5,2,0.05),np.arange(2,5.1,0.2)])
         # self.g = gas.Simulator(int(params['n']),int(params['nx']),int(params['ny']),float(params['r']),float(params['m']));
         self.init_simulator()
         self.init_plots()
@@ -60,8 +60,10 @@ class GasAnimation:
 
         fig.canvas.mpl_connect('key_press_event', self.toggle_pause)
 
+    def v(self):
+        return np.linalg.norm(self.xv[:,2:],2,axis=1)
 
-    #### update functions
+
     def update(self,i):
         return self.update_balls_view(i)
         # return (*patches, p,time_text,)
@@ -114,10 +116,6 @@ class GasAnimation:
                 self.animation.pause()
             self.paused = not self.paused
 
-    ### misc utils
-    def v(self):
-        return np.linalg.norm(self.xv[:,2:],2,axis=1)
-
     def next_event(self):
         # info=[1e10]+[-1]*6
         info = self.g.next_event(self.verbose>1)
@@ -125,9 +123,8 @@ class GasAnimation:
         if self.verbose>0:
             print(colors.green+'Next event at %.7f ' %self.info['t']+colors.black)
 
-if __name__ == '__main__':
-    dt = 0.01 #real time speed would be
-    n,nx,ny,r,m = 10,20,20,0.3,2.0
-    params = dict(n=n, nx=nx, ny=ny, r=r, m=m)
-    ga = GasAnimation(params,dt,verbose=1)
-    plt.show()
+dt = 0.01 #real time speed would be
+n,nx,ny,r,m = 10,20,20,0.3,2.0
+params = dict(n=n, nx=nx, ny=ny, r=r, m=m)
+ga = GasAnimation(params,dt,verbose=1)
+plt.show()
