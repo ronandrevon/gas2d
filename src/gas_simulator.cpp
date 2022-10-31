@@ -37,6 +37,7 @@ Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m,double
 {
     m_crossings = 0;
     m_collisions = 0;
+    m_bottom_col = 0;
     last_ic = -1;
     last_jc = -1;
     m_particle.clear( );
@@ -46,6 +47,8 @@ Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m,double
     {
         m_cell[i].resize( ny );
     }
+
+    pressure = new double[nx]();
 
     bool random = xv[0]<0;
     for (int i=0; i<np; i++)
@@ -85,7 +88,29 @@ void Gas_simulator::step_by( int ticks )
     }
 }
 
-void Gas_simulator::step_until(double* info)
+void Gas_simulator::step_until_dt(double dt,double* xv){
+  Real t=m_time;
+  for (int k=0;k<nx;k++){
+    pressure[k]=0;
+  }
+
+  while (m_time-t<dt)
+  {
+      step( );
+  }
+  int i=0;
+  for (vector<Particle>::const_iterator it = m_particle.begin( );
+       it != m_particle.end( ); it++)
+  {
+    xv[4*i+0] = it->x();
+    xv[4*i+1] = it->y();
+    xv[4*i+2] = it->vx();
+    xv[4*i+3] = it->vy();
+    i++;
+  }
+}
+
+void Gas_simulator::step_until_collision(double* info)
 {
     while (last_ic<0)
     {
@@ -211,6 +236,8 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
                 jnew = 0;
                 p.reverse_vy( );
                 last_ic=ic;
+                pressure[p.i()] +=2*abs(p.vy());
+                m_bottom_col++;
             }
             break;
 
@@ -422,7 +449,7 @@ Vector_2D Gas_simulator::init_speed(double vx, double vy,bool random)
     Real y=vy;
 
     Vector_2D v(x,y);
-    v /= v.abs( );
+    // v /= v.abs( );
     return v;
 }
 
@@ -534,6 +561,12 @@ void Gas_simulator::print_dist() const
       it->x(),it->y(),it->vx(),it->vy());
   }
 
+}
+double Gas_simulator::dv(int i) const{
+  return pressure[i];
+}
+int Gas_simulator::bottom_collisions() const{
+  return m_bottom_col;
 }
 
 // ----------------------------------------------------------------------------

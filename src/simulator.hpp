@@ -9,18 +9,13 @@
 class Simulator{
   public:
     Simulator(){}
-    Simulator(int n, int nx, int ny, float r, float m,double* xv):xv(xv){
+    Simulator(int n, int nx, int ny, float r, float m,double* xv):m_xv(xv){
       gas_simulator = new Gas_simulator(n,Real(r),nx,ny,Real(m),xv);
     }
 
-  void set_xv(double* seq, int n){
-    xv=seq;
-    if (n>400000)
-      printf("n particles=%d\n" ,n/4);
-  };
 
   void init_simulator(int n, int nx, int ny, float r, float m){
-    gas_simulator = new Gas_simulator(n,Real(r),nx,ny,Real(m),xv);
+    gas_simulator = new Gas_simulator(n,Real(r),nx,ny,Real(m),m_xv);
   };
 
   void step_by(int t){
@@ -31,10 +26,15 @@ class Simulator{
     printf("collisions:%d\n",gas_simulator->collisions());
   };
 
+  void step_until_dt(double t){
+    gas_simulator->step_until_dt(t,m_xv);
+    // return xv;
+  };
+
   double* next_event(bool v=true){
     // printf("\n");
     // double info[7];// = {0,-1,0,0,-1,0,0};
-    gas_simulator->step_until(m_info);
+    gas_simulator->step_until_collision(m_info);
     // const double (& info)[7] = m_info.vals;
 
     if (v){
@@ -55,10 +55,34 @@ class Simulator{
     return m_info[0];
   };
 
+  void set_xv(double* seq, int n){
+    m_xv=seq;
+    if (n>400000)
+      printf("n particles=%d\n" ,n/4);
+  };
+
+  void update_dv(double* seq,int n) const{
+    for (int i=0; i<n; i++)
+      seq[i]=gas_simulator->dv(i);
+  };
+  void get_xv(double* seq, int n){
+    for (int i=0; i<n; i++)
+      seq[i]=m_xv[i];
+  };
+
+  double time() const{
+    return gas_simulator->time();
+  };
+  int collisions() const{
+    return gas_simulator->collisions();
+  };
+  int bottom_collisions() const{
+    return gas_simulator->bottom_collisions();
+  };
+
   double* info(){
     return m_info;
   };
-
   const Gas_simulator* simu(){
     return gas_simulator;
   };
@@ -69,7 +93,7 @@ class Simulator{
   private:
     Gas_simulator *gas_simulator;
     double m_info[7]={0,-1,0,0,-1,0,0};
-    double *xv;
+    double *m_xv;
 };
 
 #endif // _SIMULATOR_H_

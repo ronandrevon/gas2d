@@ -13,12 +13,11 @@
 
 %include "typemaps.i"
 
-%typemap(out) double* {
+%typemap(out) double [ANY] {
   int i;
-  //$1, $1_dim0, $1_dim1
-  $result = PyList_New(7);
-  for (i = 0; i < 7; i++) {
-    PyObject *o = PyFloat_FromDouble( (double)$1[i]);
+  $result = PyList_New($1_dim0);
+  for (i = 0; i < $1_dim0; i++) {
+    PyObject *o = PyFloat_FromDouble((double) $1[i]);
     PyList_SetItem($result,i,o);
   }
 }

@@ -33,13 +33,16 @@ class Gas_simulator
 public:
     Gas_simulator( int n, Real r, int max_x, int max_y, Real m, double* xv );
     void step_by( int ticks );
-    void step_until(double *info);
+    void step_until_collision(double *info);
+    void step_until_dt(double dt,double *xv);
     void reset_all( );
 
     // void set_distribution(double * dist);
 
     int crossings( ) const;
     int collisions( ) const;
+    int bottom_collisions( ) const;
+    double dv(int i) const;
     Real k_energy( ) const;
     Real average_speed( ) const;
     const double* speed_histogram( ) const;
@@ -88,7 +91,9 @@ private:
     Real last_event_time;
     int last_ic;
     int last_jc;
+    int m_bottom_col;
 
+    double *pressure;
     Real m_average_speed; // средняя скорость
     Histogram hst;
 };

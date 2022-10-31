@@ -6,9 +6,9 @@
     - [x] animation framework
     - [x] get info from simulator
 - [x] provide initial distribution
-- [ ] compute pressure, temperature, entropy, distribution
-- [ ] allow change in volume,exchange of energy
-- [ ] external pressure/force
+- [ ] compute pressure, temperature, entropy
+- [ ] allow change in volume due to external pressure
+- [ ] exchange of energy via heat
 
 ## Identify pure collisions simulation classes - 1h30
 - [x] where the border collisions happens  : Gas_simulator::step_crossing()
