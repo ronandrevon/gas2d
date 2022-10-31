@@ -1,27 +1,42 @@
-import matplotlib.pyplot as plt
+import importlib as imp
+import copy,threading,matplotlib
+import matplotlib.pyplot as plt,numpy as np
 import matplotlib.animation as animation
-import numpy as np
+# import matplotlib.widgets import Slider, Button
+import gas
+import thermo_utils as ut;imp.reload(ut)
 import glob_colors as colors
-import gas,copy,threading
 
 class GasAnimation:
-    def __init__(self,params,dt,v0,verbose=0):
-        self.t    = 0
-        self.coll = 0
+    def __init__(self,params,dt,y0,v0,dt_int,ntop=0,verbose=0):
+        ''' Animate the Gas Simulator class
+        - params : dict('n','nx','ny','r','m')
+        - dt : Simulation time (in hundreadth of ns) between each frame
+        - y0 : initial height of the container
+        - v0 : initial average velocities
+        - dt_int : refresh time between each frame
+        - ntop : height of the histogram axis
+        '''
         self.dt   = dt
-        self.time_template = 'time = %.4f ns'
         self.verbose = verbose
         self.params  = params
-        self.HIST_BINS = np.linspace(0,3*v0,300)#np.hstack([np.arange(0,0.5,0.05),np.arange(0.5,1.5,0.01),np.arange(1.5,2,0.05),np.arange(2,5.1,0.2)])
-        self.init_simulator(v0)
-        self.init_plots()
+        nv0s = 5
+        self.HIST_BINS = np.linspace(0,nv0s*v0,nv0s*100)#np.hstack([np.arange(0,0.5,0.05),np.arange(0.5,1.5,0.01),np.arange(1.5,2,0.05),np.arange(2,5.1,0.2)])
+        self.init_simulator(y0,v0)
+        self.init_plots(ntop)
+        self.update_histogram()
+        self.info()
+
         ###
         self.animation = animation.FuncAnimation(
-            self.fig, self.update, frames=100000, interval=50, blit=False)
+            self.fig, self.update, frames=100000, interval=dt_int, blit=False)
         self.paused = False
-        self.fig.canvas.mpl_connect('key_press_event', self.toggle_pause)
+        self.fig.canvas.mpl_connect('key_press_event', self.key_event)
 
-    def init_simulator(self,v0):
+        self.trd_simu = threading.Thread(target=self.g.step_until_dt(self.dt,self.y))
+        self.trd_simu.start()
+
+    def init_simulator(self,y0,v0):
         n,nx,ny,r,m = self.params['n'],self.params['nx'],self.params['ny'],self.params['r'],self.params['m']
         x,y = np.meshgrid(range(nx),range(ny))
         x  = np.stack([np.reshape(x,nx*ny),np.reshape(y,nx*ny)])[:,:n]+0.05
@@ -36,37 +51,47 @@ class GasAnimation:
         self.g.set_xv(self.xv0)
         self.g.init_simulator(n,nx,ny,r,m)
 
-        self.dv = np.zeros(nx,dtype=float)
+        self.t    = 0
+        self.dv   = np.zeros(2*nx,dtype=float)
+        self.coll = 0
+        self.collisions_bottom = 0
+        self.collisions_top    = 0
         self.g.update_dv(self.dv)
-        # g.print_dist()
-        # for i in range(10):
-        #     print(colors.red+"event %d" %i+colors.black)
-        #     info=g.next_event(True)#;g.print_dist()
+        self.y = y0
 
-        # self.next_event()
-        self.trd_simu = threading.Thread(target=self.g.step_until_dt(self.dt))
-        self.trd_simu.start()
+        # self.next_event() # for individual collision based animations
 
 
-    def init_plots(self):
-        self.fig,(ax,ax_hist) = plt.subplots(nrows=1,ncols=2,figsize=(12, 8))#,dpi=dpi[0],**f_args)
+    def init_plots(self,ntop):
+        self.fig,(self.ax,_,_,self.ax_hist) = plt.subplots(nrows=1,ncols=4,figsize=(15, 10))#,dpi=dpi[0],**f_args)
 
         ### visualizer
-        ax.set_xlim(-1,params['nx']+1)
-        ax.set_ylim(-1,params['ny']+1)
-        ax.set_aspect('equal')
-        ax.grid()
-        self.p, = ax.plot(self.xv[:,0], self.xv[:,1],'o',markersize=92*params['r']*5/params['nx'])
-        self.time_text  = ax.text(0.05, 0.90, '', transform=ax.transAxes)
+        self.ax.set_xlim(-1,params['nx']+1)
+        self.ax.set_ylim(-1,params['ny']+1)
+        self.ax.set_aspect('equal')
+        self.ax.grid()
+        # self.ax.axis('off')
+        self.p,        = self.ax.plot(self.xv[:,0], self.xv[:,1],'o',markersize=92*params['r']*5/params['nx'])
+        self.time_text = self.ax.text(0.05, 0.90, '', transform=self.ax.transAxes)
         # self.T_text     = ax.text(0.05, 0.85, '', transform=ax.transAxes)
         # self.P_text     = ax.text(0.05, 0.85, '', transform=ax.transAxes)
         # self.rho_text   = ax.text(0.05, 0.75, '', transform=ax.transAxes)
-
+        nx,ny = [self.params[k] for k in ['nx','ny']]
+        self.patch = matplotlib.patches.Rectangle((0,0),nx,self.y,alpha=0.9,fill=0,ec='k',lw=2)
+        self.ax.add_patch(self.patch)
         ### histogram
-        _, _, self.bar_container = ax_hist.hist(self.v(), self.HIST_BINS, lw=1,density=True,
+        _, _, self.bar_container = self.ax_hist.hist(self.v(), self.HIST_BINS, lw=1,density=True,
                               ec="k", fc="blue", alpha=0.5)
-        ax_hist.set_ylim(top=params['n'])
+        if not ntop:
+            self.ntop = self.params['n']/10
+        self.ax_hist.set_ylim(top=self.ntop)
 
+        ##control volume through y slider
+        ax_slider = self.fig.add_axes([0.1, 0.01, 0.4, 0.03])
+        self.y_slider = matplotlib.widgets.Slider(ax=ax_slider,
+            label='y',valmin=1,valmax=ny,valinit=self.y,
+            )
+        self.y_slider.on_changed(self.update_slider)
 
     #### update functions
     def update(self,i):
@@ -74,42 +99,63 @@ class GasAnimation:
         self.update_data()
         return self.update_animation()
 
+    def update_slider(self,val):
+        self.y=int(val)
+        # self.patch.set_height(self.y)
+        # print(self.patch.get_height())
+        # self.patch = matplotlib.patches.Rectangle((0,0),nx,self.y,alpha=0.9,fill=0,ec='k',lw=2)
+        # self.fig.canvas.draw_idle()
+
     def update_animation(self):
         self.p.set_data(self.xv[:,0],self.xv[:,1])
-        self.time_text.set_text(self.time_template % (self.t ))
-        return (*self.bar_container.patches,self.p,self.time_text,)
+        self.ax_hist.set_ylim(top=self.ntop)
+        self.time_text.set_text('time = %.4f ns' % (self.t/100 ))
+        self.patch.set_height(self.y)
+        return (*self.bar_container.patches,self.p,self.time_text,self.patch,)
+
+    def info(self):
+        n,m,nx,ny = self.params['n'],self.params['m'],self.params['nx'],self.params['ny']
+        v = self.v()
+        T    = ut.temperature(m,v)
+        p_bottom = ut.pressure(m=m,dv=self.dv[:nx],dt=self.dt,S=1)
+        p_top    = ut.pressure(m=m,dv=self.dv[nx:],dt=self.dt,S=1)
+        P_gp = ut.P_gp(n,T,V=nx*self.y*1)
+        rho  = ut.rho(n=n,V=nx*self.y*1,m=m)
+        S    = ut.entropy(self.nv/n)
+        print()
+        print(colors.red+'time=%.2f ps' %(self.t*10) +colors.black)
+        print('collisions particles = %.d' %self.coll)
+        print('collisions top       = %.d' %self.collisions_top)
+        print('collisions bottom    = %.d' %self.collisions_bottom)
+        print('v     = %.2f m/s'  %(v.mean()*100))
+        print('T     = %.2f K'  %T)
+        print('P_top = %.2fbar' %p_top.mean()) #;print(self.dv.mean())
+        print('P_bot = %.2fbar' %p_bottom.mean()) #;print(self.dv.mean())
+        print('P_gp  = %.2fbar' %P_gp)
+        print('rho   = %.2E kg/m3' %rho)
+        print('Entropy = %.2f' %S)
 
     def update_data(self):
         '''let the simulator run for a time dt '''
         self.trd_simu.join()
         self.t    = self.g.time()
         self.coll = self.g.collisions()
-        self.bottom_collisions = self.g.bottom_collisions()
+        self.collisions_top     = self.g.top_collisions()
+        self.collisions_bottom  = self.g.bottom_collisions()
         self.g.update_dv(self.dv)
         # self.g.get_xv(self.xv0)
         # print(self.xv0)
-        n,m,nx,ny = self.params['n'],self.params['m'],self.params['nx'],self.params['ny']
-        self.xv = np.reshape(self.xv0,(n,4))
+        self.xv = np.reshape(self.xv0,(self.params['n'],4))
         if self.verbose:
-            v = self.v()
-            p = pressure(m=m,dv=self.dv,dt=self.dt,S=nx*1)
-            print()
-            print(colors.red+'time=%.2f ns' %self.t +colors.black)
-            print('collisions particles = %.d' %self.coll)
-            print('collisions bottom    = %.d' %self.bottom_collisions)
-            print('v   = %.2f m/s'  %(v.mean()*100))
-            print('T   = %.2f K'  %temperature(m,v))
-            print('P   = %.2fbar' %p.mean()) #;print(self.dv.mean())
-            print('rho = %.2E kg/m3' %rho(n=n,V=nx*ny*1,m=m))
-
+            self.info()
         self.update_histogram()
-        self.trd_simu = threading.Thread(target=self.g.step_until_dt(self.dt))
+        self.trd_simu = threading.Thread(target=self.g.step_until_dt(self.dt,self.y))
         self.trd_simu.start()
 
 
     def update_histogram(self):
-        n, _ = np.histogram(self.v(), self.HIST_BINS,density=False)
-        for count, rect in zip(n, self.bar_container.patches):
+        self.nv, _ = np.histogram(self.v(), self.HIST_BINS,density=False)
+        for count, rect in zip(self.nv, self.bar_container.patches):
             rect.set_height(count)
 
     def update_balls_view(self, i):
@@ -156,59 +202,42 @@ class GasAnimation:
     def T(self):
         return temperature(m=self.params['m'],v=self.v())
 
-    def toggle_pause(self,event):
+    def key_event(self,event):
+        print(event.key)
         if event.key==' ':
-            if self.paused:
-                self.animation.resume()
-            else:
-                self.animation.pause()
-            self.paused = not self.paused
+            self.toggle_pause()
+        elif event.key == '/':
+            self.ntop/=2
+        elif event.key == '.':
+            self.ntop*=2
 
-def pressure(m,dv,dt,S):
-    '''pressure (Bar) from impulsion, time, and area
-    - m : g/mol
-    - dv : v=1 => 100m/s
-    - dt : ns
-    - S : nm^2
-    '''
-    return (m*1e-3/Na)*dv*1e2/(dt*1e-9)/(S*1e-18)*1e-5
+        elif event.key in ['down','left','up','right']:
+            if event.key =='up':
+                self.y+=5
+            if event.key =='right':
+                self.y+=1
+            elif event.key in ['down']:
+                self.y-=5
+            elif event.key in ['left']:
+                self.y-=1
+            self.y=min(self.params['ny'],max(10,self.y))
+            self.y_slider.set_val(self.y)
 
-def temperature(m,v):
-    ''' computes the temperature in K from distribution
-    - m : g/mol
-    - v : v=1 => v=100m/s
-    '''
-    # mv2 = m*1e-3*np.sqrt(np.mean(v**2))*1e2
-    mv2 = np.mean(m*v**2)*10
-    T  = mv2/(3*R) #K
-    return T
+    def toggle_pause(self):
+        if self.paused:
+            self.animation.resume()
+        else:
+            self.animation.pause()
+        self.paused = not self.paused
 
-def rho(n,V,m):
-    ''' computes the volumetric mass in kg/m3
-    - n : nb particle
-    - V : volume in nm^3
-    - m : g/mol
-    - Note : air at SPT rho=1.225kg/m3
-    '''
-    Vm = n/(V*1e-27)/Na*1e3 #mol/L
-    rho = Vm*(m*1e-3)*1e-3 #kg/m3
-    return rho
+
 
 atm = 101325
-Na  = 6.02214076e23
-R   = Na*1.38064852e-23
-dt  = 5  #ns
-v   = 1     #100m/s=100nm/ns=1nm/dt
+dt  = 10    #dt=1 => dt=10ps    (t0=10ps)
+v0  = 5     #v=1  => v=100m/s   (v0=100nm/ns=1nm/t0)
 mN2 = 2*14  #g/mol
-n,nx,ny,r,m = 10000,500,500,0.1,28.0 # dimension unit(nm) #m(ng)
+n,nx,ny,r,m = 2000,50,200,0.1,mN2 # dimension unit(nm) #m(ng)
 
-v_avg = 5
-coll  = dt*v_avg/nx #number of collisions over dt by single particle
-ncoll_dt = 1/2*n*coll
-# print('v=%.2f m/s'  %(v_avg*100))
-# print('T=%.2f K'  %temperature(m,v_avg))
-# print('P=%.2fbar' %pressure(m=m,dv=2*v_avg*ncoll_dt,dt=dt,S=nx*1))
-# print('rho=%.2E kg/m3' %rho(n=n,V=nx*ny*1,m=m))
 params = dict(n=n, nx=nx, ny=ny, r=r, m=m)
-ga = GasAnimation(params,dt,v0=v_avg,verbose=1)
+ga = GasAnimation(params,dt,y0=int(ny/2),v0=v0,dt_int=100,ntop=0,verbose=1)
 plt.show()

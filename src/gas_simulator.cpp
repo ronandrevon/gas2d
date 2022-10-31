@@ -38,6 +38,8 @@ Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m,double
     m_crossings = 0;
     m_collisions = 0;
     m_bottom_col = 0;
+    m_top_col = 0;
+    y = ny;
     last_ic = -1;
     last_jc = -1;
     m_particle.clear( );
@@ -48,7 +50,7 @@ Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m,double
         m_cell[i].resize( ny );
     }
 
-    pressure = new double[nx]();
+    pressure = new double[2*nx]();
 
     bool random = xv[0]<0;
     for (int i=0; i<np; i++)
@@ -88,16 +90,17 @@ void Gas_simulator::step_by( int ticks )
     }
 }
 
-void Gas_simulator::step_until_dt(double dt,double* xv){
+void Gas_simulator::step_until_dt(double dt,double* xv,int dy){
   Real t=m_time;
-  for (int k=0;k<nx;k++){
+  for (int k=0;k<2*nx;k++){
     pressure[k]=0;
   }
+  if (dy!=y)
+    y=std::max(1,dy);
 
   while (m_time-t<dt)
-  {
       step( );
-  }
+
   int i=0;
   for (vector<Particle>::const_iterator it = m_particle.begin( );
        it != m_particle.end( ); it++)
@@ -243,11 +246,13 @@ void Gas_simulator::step_crossing( int ic, const Event& e )
 
         case Y_TOP:
             jnew++;
-            if (jnew >= ny)
+            if (jnew >= y)
             {
-                jnew = ny-1;
+                jnew = y-1;
                 p.reverse_vy( );
                 last_ic=ic;
+                pressure[nx+p.i()] +=2*abs(p.vy());
+                m_top_col++;
             }
             break;
     }
@@ -567,6 +572,9 @@ double Gas_simulator::dv(int i) const{
 }
 int Gas_simulator::bottom_collisions() const{
   return m_bottom_col;
+}
+int Gas_simulator::top_collisions() const{
+  return m_top_col;
 }
 
 // ----------------------------------------------------------------------------

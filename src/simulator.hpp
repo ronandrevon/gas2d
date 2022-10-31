@@ -26,8 +26,8 @@ class Simulator{
     printf("collisions:%d\n",gas_simulator->collisions());
   };
 
-  void step_until_dt(double t){
-    gas_simulator->step_until_dt(t,m_xv);
+  void step_until_dt(double t,int dy){
+    gas_simulator->step_until_dt(t,m_xv,dy);
     // return xv;
   };
 
@@ -75,6 +75,9 @@ class Simulator{
   };
   int collisions() const{
     return gas_simulator->collisions();
+  };
+  int top_collisions() const{
+    return gas_simulator->top_collisions();
   };
   int bottom_collisions() const{
     return gas_simulator->bottom_collisions();
