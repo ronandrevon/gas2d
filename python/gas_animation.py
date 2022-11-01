@@ -1,5 +1,5 @@
 import importlib as imp
-import copy,threading,matplotlib
+import time,copy,threading,matplotlib
 import matplotlib.pyplot as plt,numpy as np
 import matplotlib.animation as animation
 from matplotlib.image import NonUniformImage
@@ -12,7 +12,7 @@ matplotlib.rc('text', usetex=False)
 class GasAnimation:
     def __init__(self,params,dt,y0,v0,dt_int,
         ntop=0,plot_rho=True,avg=True,Nx=10,
-        cmap='jet',verbose=0):
+        anim=True,cmap='jet',verbose=0):
         ''' Animate the Gas Simulator class
         - params : dict('n','nx','ny','r','m')
         - dt : Simulation time (in hundreadth of ns) between each frame
@@ -25,19 +25,24 @@ class GasAnimation:
         - avg : if True computes rho and T as averages on a a Nx x Ny grid
         '''
         self.dt       = dt
-        self.verbose  = verbose
         self.params   = params
         self.plot_rho = plot_rho
         self.avg      = avg
         self.cmap     = cmap
+        self.anim     = anim
+        self.verbose  = verbose
         self.init_simulator(y0,v0,Nx,nv0s=5)
         self.update_data()
         self.init_plots(ntop)
+        if self.verbose:
+            self.info()
+
         ###
         self.run_simu()
-        self.animation = animation.FuncAnimation(
-            self.fig, self.update, frames=100000, interval=dt_int, blit=False)
-        self.paused = False
+        if self.anim:
+            self.animation = animation.FuncAnimation(
+                self.fig, self.update, frames=100000, interval=dt_int, blit=False)
+            self.paused = False
         self.fig.canvas.mpl_connect('key_press_event', self.key_event)
 
     def init_simulator(self,y0,v0,Nx,nv0s):
@@ -167,7 +172,10 @@ class GasAnimation:
         self.trd_simu.join()
         self.update_data()
         # return self.update_balls_view(i)
+        # print(colors.blue+'...update anim...'+colors.black)
         artists = self.update_animation()
+        if self.verbose:
+            self.info(i)
         self.run_simu()
         # self.trd_simu = threading.Thread(target=self.g.step_until_dt(self.dt,self.y))
         # self.trd_simu.start()
@@ -205,9 +213,6 @@ class GasAnimation:
         self.state['rho']      = ut.rho(n=n,V=self.V,m=m)
         self.state['V']        = self.V
         self.state['S']        = ut.entropy(self.nv/n)
-
-        if self.verbose:
-            self.info()
 
     def run_simu(self):
         self.trd_simu = threading.Thread(target=self.g.step_until_dt(self.dt,self.y))
@@ -303,7 +308,17 @@ class GasAnimation:
     def key_event(self,event):
         # print(event.key)
         if event.key==' ':
-            self.toggle_pause()
+            if self.anim:
+                self.toggle_pause()
+        elif event.key=='enter':
+            if self.anim:
+                self.pause = True
+                self.animation.pause()
+            t=time.time()
+            self.update(0)
+            self.info(time.time()-t)
+            # self.update_animation()
+            self.fig.canvas.draw_idle()
         elif event.key == '/':
             self.ntop/=2
         elif event.key == '.':
@@ -347,9 +362,9 @@ class GasAnimation:
             # print('Vcell=%d nm^3' %V)
             f    = lambda nd:ut.rho(nd,1,m).mean()
             rho_ = average_blocks(n_d,self.Ny,self.Nx,f)
-            print('rho mean=%.2f' %rho_.mean())
-            N    = average_blocks(n_d,self.Ny,self.Nx,lambda nd:1/n*np.sum(nd))
-            print('N density check_sum=%.2f' %N.sum())
+            # N    = average_blocks(n_d,self.Ny,self.Nx,lambda nd:1/n*np.sum(nd))
+            self.state['rho_mean'] = rho_.mean()
+            # print('N density check_sum=%.2f' %N.sum())
         else:
             rho_= n_d/n
         return rho_
@@ -363,20 +378,22 @@ class GasAnimation:
             T_ = average_blocks(T_,self.Ny,self.Nx,f)
         return T_
 
-    def info(self):
+    def info(self,i):
         print()
+        print(i)
         print(colors.red+'time=%.2f ps' %(self.t*10) +colors.black)
         print('collisions particles = %.d' %self.state['coll'])
         print('collisions top       = %.d' %self.state['collisions_top'])
         print('collisions bottom    = %.d' %self.state['collisions_bottom'])
-        print('v       = %.2f m/s'  %self.state['v']        )
-        print('T       = %.2f K'    %self.state['T']        )
-        print('P_top   = %.2f bar'  %self.state['P_top']    ) #;print(self.dv.mean())
-        print('P_bot   = %.2f bar'  %self.state['P_bottom'] ) #;print(self.dv.mean())
-        print('P_gp    = %.2f bar'  %self.state['P_gp']     )
-        print('rho     = %.2E kg/m3'%self.state['rho']      )
-        print('V       = %d   nm^3' %self.state['V']        )
-        print('Entropy = %.2f a.u.' %self.state['S']        )
+        print('v        = %.2f m/s'  %self.state['v']        )
+        print('T        = %.2f K'    %self.state['T']        )
+        print('P_top    = %.2f bar'  %self.state['P_top']    ) #;print(self.dv.mean())
+        print('P_bot    = %.2f bar'  %self.state['P_bottom'] ) #;print(self.dv.mean())
+        print('P_gp     = %.2f bar'  %self.state['P_gp']     )
+        print('rho      = %.2E kg/m3'%self.state['rho']      )
+        print('rho mean = %.2f'      %self.state['rho_mean'] )
+        print('V        = %d nm^3'   %self.state['V']        )
+        print('Entropy  = %.2f a.u.' %self.state['S']        )
 
 def average_blocks(M,Nx,Ny,f=np.mean):
     A = np.zeros((Nx,Ny),dtype=float)
@@ -389,16 +406,20 @@ def average_blocks(M,Nx,Ny,f=np.mean):
             A[i,j] =f(M[i*dx:min((i+1)*dx,nx),j*dy:(j+1)*dy])
     return A
 
+
+
 if __name__=="__main__":
     atm = 101325
-    dt  = 1    #dt=1 => dt=10ps    (t0=10ps)
+    dt  = 0.1     #dt=1 => dt=10ps    (t0=10ps)
     v0  = 5     #v=1  => v=100m/s   (v0=100nm/ns=1nm/t0)
     mN2 = 2*14  #g/mol
     # n,nx,ny,r,m = 10,10,40,0.1,mN2 # dimension unit(nm) #m(ng)
-    # n,nx,ny,r,m = 5000,50,400,0.1,mN2 # dimension unit(nm) #m(ng)
-    n,nx,ny,r,m = 500,40,160,0.1,mN2 # dimension unit(nm) #m(ng)
-    y0 = int(ny/2)
+    # n,nx,ny,r,m = 500,40,160,0.1,mN2 # dimension unit(nm) #m(ng)
+    n,nx,ny,r,m = 50000,200,800,0.1,mN2 # dimension unit(nm) #m(ng)
+    y0,Nx = int(ny/2),10
 
     params = dict(n=n, nx=nx, ny=ny, r=r, m=m)
-    ga = GasAnimation(params,dt,y0=y0,v0=v0,dt_int=20,ntop=0,plot_rho=True,Nx=10,avg=True,verbose=1)
+    ga = GasAnimation(params,dt,y0=y0,v0=v0,
+        dt_int=100,ntop=0,plot_rho=True,Nx=Nx,avg=1,anim=1,
+        verbose=1)
     plt.show()
