@@ -36,6 +36,7 @@ public:
     void step_until_collision(double *info);
     void step_until_dt(double dt, double *xv, int dy);
     void reset_all( );
+    void set_y(int y0);
 
     // void set_distribution(double * dist);
 

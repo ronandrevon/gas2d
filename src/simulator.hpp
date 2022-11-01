@@ -14,10 +14,15 @@ class Simulator{
     }
 
 
-  void init_simulator(int n, int nx, int ny, float r, float m){
+  void init_simulator(int n, int nx, int ny, float r, float m, int y0){
     gas_simulator = new Gas_simulator(n,Real(r),nx,ny,Real(m),m_xv);
-    step_by(1);
+    gas_simulator->set_y(y0);
+    gas_simulator->step_by(1);
   };
+
+  // void set_y(int y0){
+  //   gas.simulator->set_y(y0);
+  // };
 
   void step_by(int t){
     gas_simulator->step_by(t);
@@ -58,8 +63,8 @@ class Simulator{
 
   void set_xv(double* seq, int n){
     m_xv=seq;
-    if (n>400000)
-      printf("n particles=%d\n" ,n/4);
+    // if (n>400000)
+    //   printf("n particles=%d\n" ,n/4);
   };
 
   void update_dv(double* seq,int n) const{

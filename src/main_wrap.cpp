@@ -8,7 +8,7 @@
 
 int main( )
 {
-  int n=10,nx=20,ny=20;//,N_steps=50;
+  int n=10,nx=20,ny=20,y0=20;//,N_steps=50;
   Real m=1.0,r=0.5;
 
   double *xv=new double[n*4];
@@ -20,12 +20,15 @@ int main( )
   }
   double dt=10;
 
-  Simulator gas = Simulator(n,nx,ny,r,m,xv);
-  printf("Initial Distribution : \n");
-  gas.simu()->print_dist();
-  gas.step_until_dt(dt);
-  printf("Distribution after dt=%.1f \n",dt);
-  gas.simu()->print_dist();
+  Simulator gas = Simulator();
+  // printf("ok\n");
+  gas.set_xv(xv,n*4);
+  gas.init_simulator(n,nx,ny,r,m,y0);
+  // printf("Initial Distribution : \n");
+  // gas.simu()->print_dist();
+  // gas.step_until_dt(dt);
+  // printf("Distribution after dt=%.1f \n",dt);
+  // gas.simu()->print_dist();
 
   // Event event = Event(COLLISION,1,0.1);
   // double info[7];// = {0,-1,0,0,-1,0,0};

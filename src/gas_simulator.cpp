@@ -66,7 +66,7 @@ Gas_simulator::Gas_simulator( int n, Real r, int max_x, int max_y, Real m,double
             ii = int( floor( pos.x( ) ) );
             jj = int( floor( pos.y( ) ) );
         }
-        printf("%.2Lf,%.2Lf,%.2Lf,%.2Lf\n",pos.x(),pos.y(),v.x(),v.y());
+        // printf("%.2Lf,%.2Lf,%.2Lf,%.2Lf\n",pos.x(),pos.y(),v.x(),v.y());
         m_cell[ii][jj].add_particle( i );
         Particle p( pos, v, r, m );
         m_particle.push_back( p );
@@ -585,5 +585,5 @@ void Gas_simulator::distibution(double *seq) const{
     seq[nx*ny+idx] += (double)it->v().abs();
   }
 }
-
+void Gas_simulator::set_y(int y0){ y=y0;}
 // ----------------------------------------------------------------------------
