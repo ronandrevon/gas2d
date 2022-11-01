@@ -16,6 +16,7 @@ class Simulator{
 
   void init_simulator(int n, int nx, int ny, float r, float m){
     gas_simulator = new Gas_simulator(n,Real(r),nx,ny,Real(m),m_xv);
+    step_by(1);
   };
 
   void step_by(int t){
@@ -65,11 +66,23 @@ class Simulator{
     for (int i=0; i<n; i++)
       seq[i]=gas_simulator->dv(i);
   };
-  void get_xv(double* seq, int n){
-    for (int i=0; i<n; i++)
-      seq[i]=m_xv[i];
+  void get_distribution(double* seq, int n){
+    // double *v = new double[2*nx*ny];
+    // printf("size %d",n);
+    gas_simulator->distibution(seq);
+    // for (int i=0; i<2*nx*ny; i++)
+    //   seq[i]=v[i];
+    // double sum=0;
+    // for (int i=0;i<n/2;i++){
+    //   sum+=seq[i];
+    // }
+    // printf("sum = %2f\n", sum);
   };
 
+  void get_xv(double* seq, int n){
+    for (int i=0; i<n; i++)
+    seq[i]=m_xv[i];
+  };
   double time() const{
     return gas_simulator->time();
   };

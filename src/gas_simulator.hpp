@@ -55,6 +55,7 @@ public:
     const vector<Particle>& vparticles( ) const;
     const Real& time( ) const;
     void print_dist() const;
+    void distibution(double *seq) const;
 
 private:
     enum Border { X_LEFT = 1, X_RIGHT, Y_BOTTOM, Y_TOP };
