@@ -439,7 +439,8 @@ if __name__=="__main__":
     mN2 = 2*14  #g/mol
     # n,nx,ny,r,m,dt,dt_int = 10 ,10,40 ,0.1,mN2,10,50
     # n,nx,ny,r,m,dt,dt_int = 500,40,160,0.1,mN2,1 ,100
-    n,nx,ny,r,m,dt,dt_int = 50000,200,800,0.1,mN2,0.5,500
+    n,nx,ny,r,m,dt,dt_int = 5000,100,400,0.1,mN2,1 ,100
+    # n,nx,ny,r,m,dt,dt_int = 50000,200,800,0.1,mN2,0.5,500
     y0,Nx = int(ny/2),10
 
     params = dict(n=n, nx=nx, ny=ny, r=r, m=m)
