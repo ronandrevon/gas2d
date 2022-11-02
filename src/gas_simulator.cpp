@@ -582,7 +582,7 @@ void Gas_simulator::distibution(double *seq) const{
       it != m_particle.end( ); it++){
     idx = it->j()*nx + it->i();
     seq[idx] += 1;///np;
-    seq[nx*ny+idx] += (double)it->v().abs();
+    seq[nx*ny+idx] += (double) it->v().sqr_abs();
   }
 }
 void Gas_simulator::set_y(int y0){ y=y0;}

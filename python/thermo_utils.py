@@ -29,13 +29,17 @@ def pressure(m,dv,dt,S):
     '''
     return (m*1e-3/Na)*dv*1e2/(dt*1e-11)/(S*1e-18)/1e5
 
+def T(m,v2):
+    ''' computes the temperature in K from v2
+    '''
+    return  m*v2*10/(2*R) #K
+
 def temperature(m,v):
-    ''' computes the temperature in K from distribution
+    ''' computes the temperature in K from distribution v
     - m : g/mol
     - v : v=1 => v=100m/s
     Note : in 2D we have mv^2/2 = k_B*T
     '''
-    # mv2 = m*1e-3*np.sqrt(np.mean(v**2))*1e2
     mv2 = np.mean(m*v**2)*10
     T   = mv2/(2*R) #K
     return T

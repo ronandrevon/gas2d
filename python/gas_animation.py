@@ -12,6 +12,7 @@ matplotlib.rc('text', usetex=False)
 class GasAnimation:
     def __init__(self,params,dt,y0,v0,dt_int,
         ntop=0,plot_rho=True,avg=True,Nx=10,
+        Tmax=0,
         anim=True,cmap='jet',verbose=0):
         ''' Animate the Gas Simulator class
         - params : dict('n','nx','ny','r','m')
@@ -21,8 +22,9 @@ class GasAnimation:
         - dt_int : refresh time between each frame
         - ntop   : height of the histogram axis
         - plot_rho : plots rho if True, else shows the particles (can be changed with shortcut "n")
-        - Nx  : size of imshow grid along x(automatic calculation along y)
-        - avg : if True computes rho and T as averages on a a Nx x Ny grid
+        - Nx   : size of imshow grid along x(automatic calculation along y)
+        - Tmax : max temperature to display
+        - avg  : if True computes rho and T as averages on a a Nx x Ny grid
         '''
         self.dt       = dt
         self.params   = params
@@ -33,9 +35,9 @@ class GasAnimation:
         self.verbose  = verbose
         self.init_simulator(y0,v0,Nx,nv0s=5)
         self.update_data()
-        self.init_plots(ntop)
+        self.init_plots(ntop,Tmax)
         if self.verbose:
-            self.info()
+            self.info('')
 
         ###
         self.run_simu()
@@ -79,7 +81,7 @@ class GasAnimation:
 
         # self.next_event() # for individual collision based animations
 
-    def init_plots(self,ntop):
+    def init_plots(self,ntop,Tmax):
         n,nx,ny = [self.params[k] for k in ['n','nx','ny']]
         wm,hm,W,H = 0.025,0.15,0.2,0.8
         w_cb = 0.1
@@ -108,7 +110,7 @@ class GasAnimation:
         self.patches = {k:matplotlib.patches.Rectangle((0,0),nx,self.y,alpha=0.9,fill=0,ec='k',lw=2) for k in ['rho','T']}
         self.init_axN()
         self.init_ax1()
-        self.init_axT()
+        self.init_axT(Tmax)
 
         #### set axis properties
         for s in ['rho','T','v']:
@@ -138,10 +140,11 @@ class GasAnimation:
         _, _, self.bar_container = self.ax['v'].hist(self.v(), self.HIST_BINS,
             lw=1,density=True,ec="k", fc="blue", alpha=0.5)
 
-    def init_axT(self):
+    def init_axT(self,Tmax):
         nx,ny,m = self.params['nx'],self.params['ny'],self.params['m']
-        Tmax = ut.temperature(m,self.HIST_BINS[int(2/3*self.HIST_BINS.size)])
-        print('Tmax=%2.f' %Tmax)
+        if not Tmax:
+            Tmax = ut.temperature(m,self.HIST_BINS[int(2/3*self.HIST_BINS.size)])
+            print('Tmax=%2.f' %Tmax)
         artist = self.ax['T'].imshow(self.T(),extent=[0,nx,0,self.y],origin='lower',
             interpolation='bilinear',vmin=0,vmax=Tmax,cmap=self.cmap)
         cb = self.fig.colorbar(artist,ax=self.ax['T'])
@@ -206,6 +209,7 @@ class GasAnimation:
         self.state['collisions_top']     = self.g.top_collisions()
         self.state['collisions_bottom']  = self.g.bottom_collisions()
         self.state['v']        = v.mean()*100
+        self.state['v_rms']    = np.sqrt((v**2).mean())*100
         self.state['T']        = ut.temperature(m,v)
         self.state['P_bottom'] = ut.pressure(m=m,dv=self.dv[:nx],dt=self.dt,S=1).mean()
         self.state['P_top']    = ut.pressure(m=m,dv=self.dv[nx:],dt=self.dt,S=1).mean()
@@ -361,21 +365,38 @@ class GasAnimation:
             V = dx*dy*1
             # print('Vcell=%d nm^3' %V)
             f    = lambda nd:ut.rho(nd,1,m).mean()
-            rho_ = average_blocks(n_d,self.Ny,self.Nx,f)
+            rho_ = compute_blocks(n_d,self.Ny,self.Nx,f)
             # N    = average_blocks(n_d,self.Ny,self.Nx,lambda nd:1/n*np.sum(nd))
-            self.state['rho_mean'] = rho_.mean()
             # print('N density check_sum=%.2f' %N.sum())
         else:
             rho_= n_d/n
+        self.state['rho_mean'] = rho_.mean()
         return rho_
 
     def T(self):
         nx,ny = self.params['nx'],self.params['ny']
-        T_ = np.reshape(self.xv2D[nx*ny:],(ny,nx))
-        T_ = T_[:self.y,:]
+        n_d = (np.reshape(self.xv2D[:nx*ny],(ny,nx)))
+        n_d = n_d[:self.y,:]
+        v2 = np.reshape(self.xv2D[nx*ny:],(ny,nx))
+        v2 = v2[:self.y,:]
+        ## v2 is actually the sum of v^2 of the particles inside the cell
+        ## so we divide by n particles to get the average quadratic speed
+        ## <v^2>
+        v2[n_d>0] /= n_d[n_d>0]
+        ## Note that the temperature average must only be counted where particles
+        ## are present. We assume that this usually coincides with the locations where
+        ## the rms velocity is non zeros
         if self.avg:
-            f  = lambda v:ut.temperature(self.params['m'],v)
-            T_ = average_blocks(T_,self.Ny,self.Nx,f)
+            def f(v2):
+                v2 = v2[v2>0]
+                if v2.shape[0]:
+                    return ut.T(self.params['m'],v2).mean()
+                else:
+                    return 0
+            T_ = compute_blocks(v2,self.Ny,self.Nx,f)
+        else:
+            T_ = ut.T(self.params['m'],v2)
+        self.state['T_mean'] = T_[T_>0].mean()
         return T_
 
     def info(self,i):
@@ -386,16 +407,18 @@ class GasAnimation:
         print('collisions top       = %.d' %self.state['collisions_top'])
         print('collisions bottom    = %.d' %self.state['collisions_bottom'])
         print('v        = %.2f m/s'  %self.state['v']        )
+        print('v_rms    = %.2f m/s'  %self.state['v_rms']    )
         print('T        = %.2f K'    %self.state['T']        )
-        print('P_top    = %.2f bar'  %self.state['P_top']    ) #;print(self.dv.mean())
-        print('P_bot    = %.2f bar'  %self.state['P_bottom'] ) #;print(self.dv.mean())
+        print('T mean   = %.2f'      %self.state['T_mean']   )
+        print('P_top    = %.2f bar'  %self.state['P_top']    )
+        print('P_bot    = %.2f bar'  %self.state['P_bottom'] )
         print('P_gp     = %.2f bar'  %self.state['P_gp']     )
-        print('rho      = %.2E kg/m3'%self.state['rho']      )
+        print('rho      = %.2f kg/m3'%self.state['rho']      )
         print('rho mean = %.2f'      %self.state['rho_mean'] )
         print('V        = %d nm^3'   %self.state['V']        )
         print('Entropy  = %.2f a.u.' %self.state['S']        )
 
-def average_blocks(M,Nx,Ny,f=np.mean):
+def compute_blocks(M,Nx,Ny,f=np.mean):
     A = np.zeros((Nx,Ny),dtype=float)
     nx,ny = M.shape
     # dx,dy = np.array(np.ceil([nx/Nx,ny/Ny]),dtype=int)
@@ -410,16 +433,18 @@ def average_blocks(M,Nx,Ny,f=np.mean):
 
 if __name__=="__main__":
     atm = 101325
-    dt  = 0.1     #dt=1 => dt=10ps    (t0=10ps)
-    v0  = 5     #v=1  => v=100m/s   (v0=100nm/ns=1nm/t0)
+    #dt=1 => dt=10ps    (t0=10ps)
+    #v=1  => v=100m/s   (v0=100nm/ns=1nm/t0)
+    vi  = 5
     mN2 = 2*14  #g/mol
-    # n,nx,ny,r,m = 10,10,40,0.1,mN2 # dimension unit(nm) #m(ng)
-    # n,nx,ny,r,m = 500,40,160,0.1,mN2 # dimension unit(nm) #m(ng)
-    n,nx,ny,r,m = 50000,200,800,0.1,mN2 # dimension unit(nm) #m(ng)
+    # n,nx,ny,r,m,dt,dt_int = 10 ,10,40 ,0.1,mN2,10,50
+    # n,nx,ny,r,m,dt,dt_int = 500,40,160,0.1,mN2,1 ,100
+    n,nx,ny,r,m,dt,dt_int = 50000,200,800,0.1,mN2,0.5,500
     y0,Nx = int(ny/2),10
 
     params = dict(n=n, nx=nx, ny=ny, r=r, m=m)
-    ga = GasAnimation(params,dt,y0=y0,v0=v0,
-        dt_int=100,ntop=0,plot_rho=True,Nx=Nx,avg=1,anim=1,
+    ga = GasAnimation(params,dt,y0=y0,v0=vi,
+        dt_int=dt_int,ntop=0,plot_rho=True,Nx=Nx,avg=1,anim=1,
+        Tmax=700,
         verbose=1)
     plt.show()
